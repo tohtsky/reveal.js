@@ -45,6 +45,7 @@
 			// Factor of the display size that should remain empty around the content
 			margin: 0.04,
 
+            marginH : 0.1,
 			// Bounds for smallest/largest possible scale to apply to content
 			minScale: 0.2,
 			maxScale: 2.0,
@@ -161,7 +162,13 @@
 			viewDistance: 3,
 
 			// Script dependencies to load
-			dependencies: []
+			dependencies: [],
+
+            backgroundFunctions : {},
+
+            titleSelector: ".title",
+
+            headerHeight: 0.9
 
 		},
 
@@ -293,6 +300,21 @@
 		// Cache references to key DOM elements
 		dom.wrapper = document.querySelector( '.reveal' );
 		dom.slides = document.querySelector( '.reveal .slides' );
+
+		dom.header = document.querySelector( '.reveal div.header' ); 
+
+        if(!dom.header){
+            dom.header = ocument.createElement("div");
+            dom.header.classList.add("header");
+            dom.wrapper.appendChild(dom.header);
+        }
+
+        dom.headerContents = dom.header.querySelector('.header-contents')
+        if(!dom.headerContents){ 
+            dom.headerContents = document.createElement("div");
+            dom.headerContents.classList.add("header-contents");
+            dom.header.appendChild(dom.headerContents);
+        }
 
 		// Force a layout when the whole page, incl fonts, has loaded
 		window.addEventListener( 'load', layout, false );
@@ -597,7 +619,7 @@
 		var slideSize = getComputedSlideSize( window.innerWidth, window.innerHeight );
 
 		// Dimensions of the PDF pages
-		var pageWidth = Math.floor( slideSize.width * ( 1 + config.margin ) ),
+		var pageWidth = Math.floor( slideSize.width * ( 1 + config.marginH ) ),
 			pageHeight = Math.floor( slideSize.height * ( 1 + config.margin ) );
 
 		// Dimensions of slides within the pages
@@ -636,6 +658,7 @@
 				// Center the slide inside of the page, giving the slide some margin
 				var left = ( pageWidth - slideWidth ) / 2,
 					top = ( pageHeight - slideHeight ) / 2;
+                var headerHeight = top;
 
 				var contentHeight = slide.scrollHeight;
 				var numberOfPages = Math.max( Math.ceil( contentHeight / pageHeight ), 1 );
@@ -661,7 +684,32 @@
 				slide.style.top = top + 'px';
 				slide.style.width = slideWidth + 'px';
 
-				if( slide.slideBackgroundElement ) {
+				if( slide.slideBackgroundElement ) { 
+                    var title = slide.querySelector(config.titleSelector);
+                    if (title){ 
+                        console.log(title.innerHTML);
+
+                        var header = document.createElement("div"); 
+
+                        slide.slideBackgroundElement.appendChild(header);
+                        header.classList.add("header"); 
+
+                        //header.classList.add("print-pdf"); 
+                        var headerContents = document.createElement("div");
+                        headerContents.classList.add("header-contents");
+                        //headerContents.classList.add("print-pdf"); 
+                        headerContents.innerHTML =  title.innerHTML; 
+
+
+                        header.style.position = "absolute";
+                        header.style.top = "0";
+                        header.style.height = headerHeight * config.headerHeight + "px"; 
+                        header.style.fontSize = headerHeight * config.headerHeight * 0.8 + "px"  ;
+                        header.appendChild(headerContents);
+
+                        title.style.display = "none"; 
+                        title.style.position = "absolute"; 
+                    }
 					page.insertBefore( slide.slideBackgroundElement, slide );
 				}
 
@@ -849,7 +897,8 @@
 			backgroundColor: slide.getAttribute( 'data-background-color' ),
 			backgroundRepeat: slide.getAttribute( 'data-background-repeat' ),
 			backgroundPosition: slide.getAttribute( 'data-background-position' ),
-			backgroundTransition: slide.getAttribute( 'data-background-transition' )
+			backgroundTransition: slide.getAttribute( 'data-background-transition' ),
+            backgroundFunction: slide.getAttribute( 'data-background-function' )
 		};
 
 		var element = document.createElement( 'div' );
@@ -870,7 +919,7 @@
 		// Create a hash for this combination of background settings.
 		// This is used to determine when two slide backgrounds are
 		// the same.
-		if( data.background || data.backgroundColor || data.backgroundImage || data.backgroundVideo || data.backgroundIframe ) {
+		if( data.background || data.backgroundColor || data.backgroundImage || data.backgroundVideo || data.backgroundIframe || data.backgroundFunction ) {
 			element.setAttribute( 'data-background-hash', data.background +
 															data.backgroundSize +
 															data.backgroundImage +
@@ -879,6 +928,8 @@
 															data.backgroundColor +
 															data.backgroundRepeat +
 															data.backgroundPosition +
+
+                                                            data.backgroundFunction + 
 															data.backgroundTransition );
 		}
 
@@ -1685,6 +1736,18 @@
 
 	}
 
+    function showTitleForSlide(slide){
+        var title = slide.querySelector(config.titleSelector);
+        if (title){
+            dom.headerContents.innerHTML = title.innerHTML;
+            title.style.display = "none"; 
+            dom.headerContents.style.fontSize = title.style.fontSize;
+            dom.header.style.display = "";
+        } else{ 
+            dom.header.style.display = "none";
+        }
+    }
+
 	/**
 	 * Applies JavaScript-controlled layout rules to the
 	 * presentation.
@@ -1694,6 +1757,13 @@
 		if( dom.wrapper && !isPrintingPDF() ) {
 
 			var size = getComputedSlideSize();
+
+            dom.header.style.position = "absolute"; 
+            dom.header.style.width = "100%"; 
+            dom.header.style.height = size.headerHeight + "px"; 
+            dom.header.style.fontSize = size.headerHeight*0.8 + "px";
+
+            console.log(dom.headerContents.innerHTML);
 
 			// Layout the contents of the slides
 			layoutSlideContents( config.width, config.height );
@@ -1722,6 +1792,11 @@
 				// Don't use zoom to scale down since that can lead to shifts
 				// in text layout/line breaks.
 				if( scale > 1 && features.zoom ) {
+
+
+					dom.header.style.zoom = scale;
+                    dom.headerContents.style.zoom = scale;
+
 					dom.slides.style.zoom = scale;
 					dom.slides.style.left = '';
 					dom.slides.style.top = '';
@@ -1826,11 +1901,15 @@
 
 			// Presentation size
 			presentationWidth: presentationWidth || dom.wrapper.offsetWidth,
-			presentationHeight: presentationHeight || dom.wrapper.offsetHeight
+			presentationHeight: presentationHeight || dom.wrapper.offsetHeight,
+            headerHeight : 0
+
 		};
+        size.headerHeight = size.presentationHeight * config.margin / 2;
+        size.headerHeight *= config.headerHeight;
 
 		// Reduce available space by margin
-		size.presentationWidth -= ( size.presentationWidth * config.margin );
+		size.presentationWidth -= ( size.presentationWidth * config.marginH );
 		size.presentationHeight -= ( size.presentationHeight * config.margin );
 
 		// Slide width may be a percentage of available width
@@ -2297,6 +2376,8 @@
 
 		// Store references to the previous and current slides
 		currentSlide = currentVerticalSlides[ indexv ] || currentHorizontalSlide;
+
+        showTitleForSlide(currentSlide);
 
 		// Show fragment, if specified
 		if( typeof f !== 'undefined' ) {
@@ -3049,7 +3130,8 @@
 					backgroundVideo = slide.getAttribute( 'data-background-video' ),
 					backgroundVideoLoop = slide.hasAttribute( 'data-background-video-loop' ),
 					backgroundVideoMuted = slide.hasAttribute( 'data-background-video-muted' ),
-					backgroundIframe = slide.getAttribute( 'data-background-iframe' );
+					backgroundIframe = slide.getAttribute( 'data-background-iframe' ),
+                    backgroundFunction = slide.getAttribute( 'data-background-function' );
 
 				// Images
 				if( backgroundImage ) {
@@ -3084,7 +3166,10 @@
 						iframe.style.maxWidth = '100%';
 
 					background.appendChild( iframe );
-				}
+				} 
+                else if( backgroundFunction ) {
+                    config.backgroundFunctions[backgroundFunction](background);
+                }
 			}
 		}
 
