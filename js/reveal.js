@@ -304,7 +304,7 @@
 		dom.header = document.querySelector( '.reveal div.header' ); 
 
         if(!dom.header){
-            dom.header = ocument.createElement("div");
+            dom.header = document.createElement("div");
             dom.header.classList.add("header");
             dom.wrapper.appendChild(dom.header);
         }
